@@ -2,6 +2,7 @@
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
 #include <base/math.h>
 #include <base/system.h>
+#include <base/hash_ctxt.h>
 
 #include <engine/console.h>
 
@@ -37,6 +38,8 @@ bool CNetServer::Open(NETADDR BindAddr, CConfig *pConfig, IConsole *pConsole, IE
 	m_pfnNewClient = pfnNewClient;
 	m_pfnDelClient = pfnDelClient;
 	m_UserPtr = pUser;
+
+	secure_random_fill(m_SecurityTokenSeed, sizeof(m_SecurityTokenSeed));
 
 	return true;
 }
@@ -86,6 +89,28 @@ int CNetServer::Update()
 	m_TokenCache.Update();
 
 	return 0;
+}
+
+SECURITY_TOKEN CNetServer::GetGlobalToken()
+{
+	static NETADDR NullAddr = {0};
+	return GetSecurityToken(NullAddr);
+}
+
+SECURITY_TOKEN CNetServer::GetSecurityToken(const NETADDR &Addr)
+{
+	SHA256_CTX Sha256;
+	sha256_init(&Sha256);
+	sha256_update(&Sha256, (unsigned char*)m_SecurityTokenSeed, sizeof(m_SecurityTokenSeed));
+	sha256_update(&Sha256, (unsigned char*)&Addr, sizeof(Addr));
+
+	SECURITY_TOKEN SecurityToken = ToSecurityToken(sha256_finish(&Sha256).data);
+
+	if (SecurityToken == NET_SECURITY_TOKEN_UNKNOWN ||
+		SecurityToken == NET_SECURITY_TOKEN_UNSUPPORTED)
+			SecurityToken = 1;
+
+	return SecurityToken;
 }
 
 /*

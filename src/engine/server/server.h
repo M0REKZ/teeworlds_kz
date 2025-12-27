@@ -67,6 +67,8 @@ class CServer : public IServer
 	class CConfig *m_pConfig;
 	class IConsole *m_pConsole;
 	class IStorage *m_pStorage;
+	class IRegister *m_pRegister;
+	//class IRegister *m_pRegisterTwo;
 public:
 	class IGameServer *GameServer() { return m_pGameServer; }
 	class CConfig *Config() { return m_pConfig; }
@@ -140,6 +142,42 @@ public:
 		int m_MapListEntryToSend;
 
 		void Reset();
+
+		class CDnsblLookup : public IJob
+		{
+			void Run() override;
+		public:
+			CDnsblLookup() {};
+			CDnsblLookup(const char *pCmd)
+			{
+				str_copy(m_aCommand, pCmd, sizeof(m_aCommand));
+				m_Result = 0;
+			}
+
+			int m_Result;
+			char m_aCommand[512];
+		};
+		int m_DnsblState;
+		std::shared_ptr<CDnsblLookup> m_pDnsblLookup;
+
+		class CPgscLookup : public IJob
+		{
+			void Run() override;
+		public:
+			CPgscLookup() {};
+			CPgscLookup(const NETADDR *pAddr, const char *pFindString)
+			{
+				net_addr_str(pAddr, m_aAddress, sizeof(m_aAddress), false);
+				str_copy(m_aFindString, pFindString, sizeof(m_aFindString));
+				m_Result = 0;
+			}
+
+			int m_Result;
+			char m_aAddress[NETADDR_MAXSTRSIZE];
+			char m_aFindString[128];
+		};
+		int m_PgscState; // Proxy Game Server Check
+		std::shared_ptr<CPgscLookup> m_pPgscLookup;
 	};
 
 	CClient m_aClients[MAX_CLIENTS];
@@ -190,9 +228,9 @@ public:
 	int m_GeneratedRconPassword;
 
 	CDemoRecorder m_DemoRecorder;
-	CRegister m_Register;
 
 	CServer();
+	~CServer();
 
 	virtual void SetClientName(int ClientID, const char *pName);
 	virtual void SetClientClan(int ClientID, char const *pClan);
@@ -244,6 +282,9 @@ public:
 
 	void SendServerInfo(int ClientID);
 	void GenerateServerInfo(CPacker *pPacker, bool IncludeClientInfo);
+	void UpdateRegisterServerInfo();
+	virtual void UpdateServerInfo(bool Resend = false);
+	const char *GetGameTypeServerInfo();
 
 	void PumpNetwork();
 
@@ -251,7 +292,6 @@ public:
 	const char *GetMapName();
 	int LoadMap(const char *pMapName);
 
-	void InitRegister(CNetServer *pNetServer, IEngineMasterServer *pMasterServer, CConfig *pConfig, IConsole *pConsole);
 	void InitInterfaces(IKernel *pKernel);
 	int Run();
 	void Free();

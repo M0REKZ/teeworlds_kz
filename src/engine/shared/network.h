@@ -133,6 +133,25 @@ enum
 	NET_ENUM_TERMINATOR
 };
 
+typedef int SECURITY_TOKEN;
+
+static const unsigned char SECURITY_TOKEN_MAGIC[] = {'T', 'K', 'E', 'N'};
+
+SECURITY_TOKEN ToSecurityToken(const unsigned char *pData);
+void WriteSecurityToken(unsigned char *pData, SECURITY_TOKEN Token);
+
+enum
+{
+	NET_SECURITY_TOKEN_UNKNOWN = -1,
+	NET_SECURITY_TOKEN_UNSUPPORTED = 0,
+};
+
+enum
+{
+	SOCKET_MAIN,
+	SOCKET_TWO,
+	NUM_SOCKETS
+};
 
 typedef int (*NETFUNC_DELCLIENT)(int ClientID, const char* pReason, void *pUser);
 typedef int (*NETFUNC_NEWCLIENT)(int ClientID, void *pUser);
@@ -488,6 +507,11 @@ public:
 	//
 	void SetMaxClients(int MaxClients);
 	void SetMaxClientsPerIP(int MaxClientsPerIP);
+
+	SECURITY_TOKEN GetGlobalToken();
+	SECURITY_TOKEN GetSecurityToken(const NETADDR& Addr);
+
+	unsigned char m_SecurityTokenSeed[16];
 };
 
 class CNetConsole

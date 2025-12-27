@@ -2576,7 +2576,7 @@ void CClient::DoVersionSpecificActions()
 		Upstream latency
 */
 #if defined(CONF_PLATFORM_MACOS)
-extern "C" int TWMain(int argc, const char **argv)
+int TWMain(int argc, const char **argv)
 #else
 int main(int argc, const char **argv)
 #endif

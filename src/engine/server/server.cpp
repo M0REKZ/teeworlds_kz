@@ -25,6 +25,8 @@
 #include <engine/shared/protocol.h>
 #include <engine/shared/protocol_ex.h>
 #include <engine/shared/snapshot.h>
+#include <engine/shared/json.h>
+#include <engine/shared/http.h>
 
 #include <mastersrv/mastersrv.h>
 
@@ -32,6 +34,8 @@
 #include "server.h"
 
 #include <signal.h>
+#include <limits>
+#include <game/version.h>
 
 volatile sig_atomic_t InterruptSignaled = 0;
 
@@ -250,6 +254,9 @@ void CServer::CClient::Reset()
 
 CServer::CServer() : m_DemoRecorder(&m_SnapshotDelta)
 {
+	m_pRegister = nullptr;
+	//m_pRegisterTwo = nullptr;
+
 	m_TickSpeed = SERVER_TICK_SPEED;
 
 	m_pGameServer = 0;
@@ -273,6 +280,11 @@ CServer::CServer() : m_DemoRecorder(&m_SnapshotDelta)
 	Init();
 }
 
+CServer::~CServer()
+{
+	delete m_pRegister;
+	//delete m_pRegisterTwo;
+}
 
 void CServer::SetClientName(int ClientID, const char *pName)
 {
@@ -304,7 +316,111 @@ void CServer::SetClientScore(int ClientID, int Score)
 {
 	if(ClientID < 0 || ClientID >= MAX_CLIENTS || m_aClients[ClientID].m_State < CClient::STATE_READY)
 		return;
+	if (m_aClients[ClientID].m_Score != Score)
+		UpdateServerInfo();
 	m_aClients[ClientID].m_Score = Score;
+}
+
+const char *CServer::GetGameTypeServerInfo()
+{
+	static char aBuf[128];
+	str_copy(aBuf, GameServer()->GameType(), sizeof(aBuf));
+	return aBuf;
+}
+
+void CServer::UpdateRegisterServerInfo()
+{
+	// count the players
+	int PlayerCount = 0, ClientCount = 0, DummyCount = 0;
+	for(int i = 0; i < MAX_CLIENTS; i++)
+	{
+		if(m_aClients[i].m_State != CClient::STATE_EMPTY)
+		{
+			if(GameServer()->IsClientPlayer(i))
+				PlayerCount++;
+
+			ClientCount++;
+		}
+	}
+
+	int MaxPlayers = maximum(PlayerCount, Config()->m_SvPlayerSlots-DummyCount);
+	int MaxClients = maximum(ClientCount, Config()->m_SvMaxClients-DummyCount);
+	char aName[256];
+	char aGameType[32];
+	char aMapName[64];
+	char aVersion[64];
+	char aMapSha256[SHA256_MAXSTRSIZE];
+
+	sha256_str(m_CurrentMapSha256, aMapSha256, sizeof(aMapSha256));
+
+	char aInfo[16384];
+	str_format(aInfo, sizeof(aInfo),
+		"{"
+		"\"max_clients\":%d,"
+		"\"max_players\":%d,"
+		"\"passworded\":%s,"
+		"\"game_type\":\"%s\","
+		"\"name\":\"%s\","
+		"\"map\":{"
+		"\"name\":\"%s\","
+		"\"sha256\":\"%s\","
+		"\"size\":%d"
+		"},"
+		"\"version\":\"%s\","
+		"\"clients\":[",
+		MaxClients,
+		MaxPlayers,
+		JsonBool(Config()->m_Password[0]),
+		EscapeJson(aGameType, sizeof(aGameType), GetGameTypeServerInfo()),
+		EscapeJson(aName, sizeof(aName), Config()->m_SvName),
+		EscapeJson(aMapName, sizeof(aMapName), GetMapName()),
+		aMapSha256,
+		m_CurrentMapSize,
+		EscapeJson(aVersion, sizeof(aVersion), GAME_VERSION));
+
+	bool FirstPlayer = true;
+	for(int i = 0; i < MAX_CLIENTS; i++)
+	{
+		if(m_aClients[i].m_State != CClient::STATE_EMPTY)
+		{
+			// 0 means CPlayer::SCORE_TIME, so the other score modes use scoreformat instead of time format
+			// thats why we just send -9999, because it will be displayed as nothing
+			int Score = m_aClients[i].m_Score;
+
+			char aCName[32];
+			char aCClan[32];
+
+			char aClientInfo[256];
+			str_format(aClientInfo, sizeof(aClientInfo),
+				"%s{"
+				"\"name\":\"%s\","
+				"\"clan\":\"%s\","
+				"\"country\":%d,"
+				"\"score\":%d,"
+				"\"is_player\":%s"
+				"}",
+				!FirstPlayer ? "," : "",
+				EscapeJson(aCName, sizeof(aCName), ClientName(i)),
+				EscapeJson(aCClan, sizeof(aCClan), ClientClan(i)),
+				m_aClients[i].m_Country,
+				Score,
+				JsonBool(GameServer()->IsClientPlayer(i)));
+			str_append(aInfo, aClientInfo, sizeof(aInfo));
+			FirstPlayer = false;
+		}
+	}
+
+	str_append(aInfo, "]}", sizeof(aInfo));
+
+	m_pRegister->OnNewInfo(aInfo);
+	//m_pRegisterTwo->OnNewInfo("{\"type\":\"0.7-placeholder\"}");
+}
+
+void CServer::UpdateServerInfo(bool Resend)
+{
+	UpdateRegisterServerInfo();
+	if (Resend)
+		SendServerInfo(-1);
 }
 
 void CServer::Kick(int ClientID, const char *pReason)
@@ -1169,7 +1285,8 @@ void CServer::PumpNetwork()
 	{
 		if(Packet.m_Flags&NETSENDFLAG_CONNLESS)
 		{
-			if(m_Register.RegisterProcessPacket(&Packet, ResponseToken))
+			IRegister *pRegister = m_pRegister;
+			if (ResponseToken == NET_SECURITY_TOKEN_UNKNOWN && pRegister->OnPacket(&Packet))
 				continue;
 			if(Packet.m_DataSize >= int(sizeof(SERVERBROWSE_GETINFO)) &&
 				mem_comp(Packet.m_pData, SERVERBROWSE_GETINFO, sizeof(SERVERBROWSE_GETINFO)) == 0)
@@ -1269,11 +1386,6 @@ int CServer::LoadMap(const char *pMapName)
 	return 1;
 }
 
-void CServer::InitRegister(CNetServer *pNetServer, IEngineMasterServer *pMasterServer, CConfig *pConfig, IConsole *pConsole)
-{
-	m_Register.Init(pNetServer, pMasterServer, pConfig, pConsole);
-}
-
 void CServer::InitInterfaces(IKernel *pKernel)
 {
 	m_pConfig = pKernel->RequestInterface<IConfigManager>()->Values();
@@ -1328,6 +1440,9 @@ int CServer::Run()
 		return -1;
 	}
 
+	IEngine *pEngine = Kernel()->RequestInterface<IEngine>();
+	m_pRegister = CreateRegister(m_pConfig, m_pConsole, pEngine, Config()->m_SvPort, m_NetServer.GetGlobalToken());
+
 	m_Econ.Init(Config(), Console(), &m_ServerBan);
 
 	char aBuf[256];
@@ -1346,6 +1461,7 @@ int CServer::Run()
 
 	// process pending commands
 	m_pConsole->StoreCommands(false);
+	m_pRegister->OnConfigChange();
 
 	if(m_GeneratedRconPassword)
 	{
@@ -1389,6 +1505,7 @@ int CServer::Run()
 					m_CurrentGameTick = 0;
 					Kernel()->ReregisterInterface(GameServer());
 					GameServer()->OnInit();
+					UpdateServerInfo(true);
 				}
 				else
 				{
@@ -1438,7 +1555,7 @@ int CServer::Run()
 			}
 
 			// master server stuff
-			m_Register.RegisterUpdate(m_NetServer.NetType());
+			m_pRegister->Update();
 
 			PumpNetwork();
 
@@ -1455,6 +1572,7 @@ int CServer::Run()
 	// disconnect all clients on shutdown
 	m_NetServer.Close(m_aShutdownReason);
 	m_Econ.Shutdown();
+	m_pRegister->OnShutdown();
 
 	GameServer()->OnShutdown();
 	Free();
@@ -1668,7 +1786,7 @@ void CServer::ConchainSpecialInfoupdate(IConsole::IResult *pResult, void *pUserD
 	if(pResult->NumArguments())
 	{
 		str_clean_whitespaces(pSelf->Config()->m_SvName);
-		pSelf->SendServerInfo(-1);
+		pSelf->UpdateServerInfo(true);
 	}
 }
 
@@ -1762,6 +1880,8 @@ void CServer::ConchainMapUpdate(IConsole::IResult *pResult, void *pUserData, ICo
 
 void CServer::RegisterCommands()
 {
+	HttpInit(m_pStorage);
+
 	// register console commands
 	Console()->Register("kick", "i[id] ?r[reason]", CFGFLAG_SERVER, ConKick, this, "Kick player with specified id for any reason");
 	Console()->Register("status", "", CFGFLAG_SERVER, ConStatus, this, "List players");
@@ -1873,11 +1993,8 @@ int main(int argc, const char **argv)
 	IMapChecker *pMapChecker = CreateMapChecker();
 	IGameServer *pGameServer = CreateGameServer();
 	IConsole *pConsole = CreateConsole(CFGFLAG_SERVER|CFGFLAG_ECON);
-	IEngineMasterServer *pEngineMasterServer = CreateEngineMasterServer();
 	IStorage *pStorage = CreateStorage("Teeworlds", IStorage::STORAGETYPE_SERVER, argc, argv);
 	IConfigManager *pConfigManager = CreateConfigManager();
-
-	pServer->InitRegister(&pServer->m_NetServer, pEngineMasterServer, pConfigManager->Values(), pConsole);
 
 	{
 		bool RegisterFail = false;
@@ -1891,8 +2008,6 @@ int main(int argc, const char **argv)
 		RegisterFail = RegisterFail || !pKernel->RegisterInterface(pConsole);
 		RegisterFail = RegisterFail || !pKernel->RegisterInterface(pStorage);
 		RegisterFail = RegisterFail || !pKernel->RegisterInterface(pConfigManager);
-		RegisterFail = RegisterFail || !pKernel->RegisterInterface(static_cast<IEngineMasterServer*>(pEngineMasterServer)); // register as both
-		RegisterFail = RegisterFail || !pKernel->RegisterInterface(static_cast<IMasterServer*>(pEngineMasterServer));
 
 		if(RegisterFail)
 			return -1;
@@ -1901,8 +2016,6 @@ int main(int argc, const char **argv)
 	pEngine->Init();
 	pConfigManager->Init(FlagMask);
 	pConsole->Init();
-	pEngineMasterServer->Init();
-	pEngineMasterServer->Load();
 
 	pServer->InitInterfaces(pKernel);
 	if(!UseDefaultConfig)
@@ -1937,7 +2050,6 @@ int main(int argc, const char **argv)
 	delete pMapChecker;
 	delete pGameServer;
 	delete pConsole;
-	delete pEngineMasterServer;
 	delete pStorage;
 	delete pConfigManager;
 

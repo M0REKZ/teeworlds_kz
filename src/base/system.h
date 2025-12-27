@@ -11,10 +11,6 @@
 #include "detect.h"
 #include <time.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifdef __GNUC__
 #define GNUC_ATTRIBUTE(x) __attribute__(x)
 #else
@@ -601,14 +597,103 @@ void thread_detach(void *thread);
 void cpu_relax();
 
 /* Group: Locks */
-typedef void* LOCK;
+// Enable thread safety attributes only with clang.
+// The attributes can be safely erased when compiling with other compilers.
+#if defined(__clang__) && (!defined(SWIG))
+#define THREAD_ANNOTATION_ATTRIBUTE__(x) __attribute__((x))
+#else
+#define THREAD_ANNOTATION_ATTRIBUTE__(x) // no-op
+#endif
+
+#define CAPABILITY(x) \
+	THREAD_ANNOTATION_ATTRIBUTE__(capability(x))
+
+#define SCOPED_CAPABILITY \
+	THREAD_ANNOTATION_ATTRIBUTE__(scoped_lockable)
+
+#define GUARDED_BY(x) \
+	THREAD_ANNOTATION_ATTRIBUTE__(guarded_by(x))
+
+#define PT_GUARDED_BY(x) \
+	THREAD_ANNOTATION_ATTRIBUTE__(pt_guarded_by(x))
+
+#define ACQUIRED_BEFORE(...) \
+	THREAD_ANNOTATION_ATTRIBUTE__(acquired_before(__VA_ARGS__))
+
+#define ACQUIRED_AFTER(...) \
+	THREAD_ANNOTATION_ATTRIBUTE__(acquired_after(__VA_ARGS__))
+
+#define REQUIRES(...) \
+	THREAD_ANNOTATION_ATTRIBUTE__(requires_capability(__VA_ARGS__))
+
+#define REQUIRES_SHARED(...) \
+	THREAD_ANNOTATION_ATTRIBUTE__(requires_shared_capability(__VA_ARGS__))
+
+#define ACQUIRE(...) \
+	THREAD_ANNOTATION_ATTRIBUTE__(acquire_capability(__VA_ARGS__))
+
+#define ACQUIRE_SHARED(...) \
+	THREAD_ANNOTATION_ATTRIBUTE__(acquire_shared_capability(__VA_ARGS__))
+
+#define RELEASE(...) \
+	THREAD_ANNOTATION_ATTRIBUTE__(release_capability(__VA_ARGS__))
+
+#define RELEASE_SHARED(...) \
+	THREAD_ANNOTATION_ATTRIBUTE__(release_shared_capability(__VA_ARGS__))
+
+#define RELEASE_GENERIC(...) \
+	THREAD_ANNOTATION_ATTRIBUTE__(release_generic_capability(__VA_ARGS__))
+
+#define TRY_ACQUIRE(...) \
+	THREAD_ANNOTATION_ATTRIBUTE__(try_acquire_capability(__VA_ARGS__))
+
+#define TRY_ACQUIRE_SHARED(...) \
+	THREAD_ANNOTATION_ATTRIBUTE__(try_acquire_shared_capability(__VA_ARGS__))
+
+#define EXCLUDES(...) \
+	THREAD_ANNOTATION_ATTRIBUTE__(locks_excluded(__VA_ARGS__))
+
+#define ASSERT_CAPABILITY(x) \
+	THREAD_ANNOTATION_ATTRIBUTE__(assert_capability(x))
+
+#define ASSERT_SHARED_CAPABILITY(x) \
+	THREAD_ANNOTATION_ATTRIBUTE__(assert_shared_capability(x))
+
+#define RETURN_CAPABILITY(x) \
+	THREAD_ANNOTATION_ATTRIBUTE__(lock_returned(x))
+
+#define NO_THREAD_SAFETY_ANALYSIS \
+	THREAD_ANNOTATION_ATTRIBUTE__(no_thread_safety_analysis)
+
+/**
+ * @defgroup Locks
+ *
+ * Synchronization primitives.
+ *
+ * @see Threads
+ */
+
+typedef CAPABILITY("mutex") void *LOCK;
+
+/**
+ * @ingroup Locks
+ */
 
 LOCK lock_create();
 void lock_destroy(LOCK lock);
 
-int lock_trylock(LOCK lock);
-void lock_wait(LOCK lock);
-void lock_unlock(LOCK lock);
+/**
+ * @ingroup Locks
+ */
+int lock_trylock(LOCK lock) TRY_ACQUIRE(1, lock);
+/**
+ * @ingroup Locks
+ */
+void lock_wait(LOCK lock) ACQUIRE(lock);
+/**
+ * @ingroup Locks
+ */
+void lock_unlock(LOCK lock) RELEASE(lock);
 
 
 /* Group: Semaphores */
@@ -1281,6 +1366,21 @@ int str_comp(const char *a, const char *b);
 int str_comp_num(const char *a, const char *b, const int num);
 
 /*
+	Function: str_next_token
+		Writes the next token after str into buf, returns the rest of the string.
+	Parameters:
+		str - Pointer to string.
+		delim - Delimiter for tokenization.
+		buffer - Buffer to store token in.
+		buffer_size - Size of the buffer.
+	Returns:
+		Pointer to rest of the string.
+	Remarks:
+		- The token is always null-terminated.
+*/
+const char *str_next_token(const char *str, const char *delim, char *buffer, int buffer_size);
+
+/*
 	Function: str_comp_filenames
 		Compares two strings case sensitive, digit chars will be compared as numbers.
 
@@ -1500,6 +1600,18 @@ typedef struct
 */
 typedef int (*FS_LISTDIR_CALLBACK_FILEINFO)(const CFsFileInfo *info, int is_dir, int dir_type, void *user);
 void fs_listdir_fileinfo(const char *dir, FS_LISTDIR_CALLBACK_FILEINFO cb, int type, void *user);
+
+/*
+	Function: fs_makedir_rec_for
+		Recursively create directories for a file
+
+	Parameters:
+		path - File for which to create directories
+
+	Returns:
+		Returns 0 on success. Negative value on failure.
+*/
+int fs_makedir_rec_for(const char *path);
 
 /*
 	Function: fs_makedir
@@ -2022,9 +2134,5 @@ unsigned bytes_be_to_uint(const unsigned char *bytes);
 */
 void uint_to_bytes_be(unsigned char *bytes, unsigned value);
 
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

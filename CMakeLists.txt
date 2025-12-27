@@ -174,6 +174,8 @@ if(NOT MSVC)
   add_c_compiler_flag_if_supported(OUR_FLAGS_DEP -Wno-implicit-function-declaration)
 endif()
 
+set(CMAKE_CXX_STANDARD 17)
+
 if(NOT MSVC)
   check_c_compiler_flag("-O2;-Wp,-Werror;-D_FORTIFY_SOURCE=2" DEFINE_FORTIFY_SOURCE) # Some distributions define _FORTIFY_SOURCE by themselves.
 endif()
@@ -293,6 +295,7 @@ if(NOT CMAKE_CROSSCOMPILING)
 endif()
 find_package(ZLIB)
 find_package(Crypto)
+find_package(Curl)
 find_package(Freetype)
 find_package(Git)
 find_package(GTest)
@@ -300,7 +303,6 @@ find_package(Pnglite)
 find_package(SDL2)
 find_package(Threads)
 find_package(Wavpack)
-
 
 if(TARGET_OS AND TARGET_OS STREQUAL "mac")
   find_program(CMAKE_OTOOL otool)
@@ -352,6 +354,11 @@ show_dependency_status("Python3" Python3)
 show_dependency_status("SDL2" SDL2)
 show_dependency_status("Wavpack" WAVPACK)
 show_dependency_status("Zlib" ZLIB)
+show_dependency_status("Curl" CURL)
+
+if(NOT(CURL_FOUND))
+  message(SEND_ERROR "You must install Curl to compile ${CMAKE_PROJECT_NAME}")
+endif()
 
 if(NOT(Python3_FOUND))
   message(SEND_ERROR "You must install Python to compile Teeworlds")
@@ -385,7 +392,7 @@ elseif(TARGET_OS STREQUAL "mac")
   find_library(COCOA Cocoa)
   find_library(OPENGL OpenGL)
   set(PLATFORM_CLIENT
-    src/macoslaunch/client.m
+    src/macoslaunch/client.mm
   )
   set(PLATFORM_CLIENT_LIBS ${COCOA} ${OPENGL})
   set(PLATFORM_LIBS ${CARBON})
@@ -1177,6 +1184,7 @@ foreach(datafile ${DATA})
   file(COPY ${datafile} DESTINATION ${DESTINATION})
 endforeach()
 set(COPY_FILES
+  ${CURL_COPY_FILES}
   ${FREETYPE_COPY_FILES}
   ${SDL2_COPY_FILES}
 )
@@ -1254,14 +1262,15 @@ generate_source("src/generated/server_data.h" "server_content_header")
 set_src(BASE GLOB_RECURSE src/base
   color.h
   detect.h
-  hash.c
+  hash.cpp
   hash.h
-  hash_bundled.c
+  hash_bundled.cpp
   hash_ctxt.h
-  hash_libtomcrypt.c
-  hash_openssl.c
+  hash_libtomcrypt.cpp
+  hash_openssl.cpp
+  lock_scope.h
   math.h
-  system.c
+  system.cpp
   system.h
   tl/algorithm.h
   tl/allocator.h
@@ -1313,10 +1322,14 @@ set_src(ENGINE_SHARED GLOB src/engine/shared
   filecollection.cpp
   filecollection.h
   global_uuid_manager.cpp
+  http.cpp
+  http.h
   huffman.cpp
   huffman.h
   jobs.cpp
   jobs.h
+  json.cpp
+  json.h
   jsonparser.cpp
   jsonparser.h
   jsonwriter.cpp
@@ -1378,7 +1391,7 @@ set(GAME_GENERATED_SHARED
 set(DEPS ${DEP_JSON} ${DEP_MD5} ${ZLIB_DEP})
 
 # Libraries
-set(LIBS ${CMAKE_THREAD_LIBS_INIT} ${ZLIB_LIBRARIES} ${CRYPTO_LIBRARIES} ${PLATFORM_LIBS})
+set(LIBS ${CMAKE_THREAD_LIBS_INIT} ${ZLIB_LIBRARIES} ${CRYPTO_LIBRARIES} ${PLATFORM_LIBS} ${CURL_LIBRARIES})
 
 # Targets
 add_library(engine-shared EXCLUDE_FROM_ALL OBJECT ${ENGINE_INTERFACE} ${ENGINE_SHARED} ${ENGINE_GENERATED_SHARED} ${BASE})
@@ -2103,6 +2116,7 @@ foreach(target ${TARGETS_LINK})
   if(TARGET_OS STREQUAL "mac")
     target_link_libraries(${target} -stdlib=libc++)
     target_link_libraries(${target} -mmacosx-version-min=10.7)
+    target_link_libraries(${target} "-framework SystemConfiguration") # Required by curl 7.79.0
   endif()
   if((MINGW OR TARGET_OS STREQUAL "linux") AND PREFER_BUNDLED_LIBS)
     # Statically link the standard libraries with on MinGW/Linux so we don't

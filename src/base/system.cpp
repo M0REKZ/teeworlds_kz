@@ -8,6 +8,7 @@
 #include <time.h>
 
 #include "system.h"
+#include "lock_scope.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -54,10 +55,6 @@
 
 #if defined(CONF_PLATFORM_SOLARIS)
 	#include <sys/filio.h>
-#endif
-
-#if defined(__cplusplus)
-extern "C" {
 #endif
 
 IOHANDLE io_stdin() { return (IOHANDLE)stdin; }
@@ -425,28 +422,28 @@ unsigned io_read(IOHANDLE io, void *buffer, unsigned size)
 void io_read_all(IOHANDLE io, void **result, unsigned *result_len)
 {
 	unsigned len = (unsigned)io_length(io);
-	char *buffer = mem_alloc(len + 1);
+	char *buffer = (char*)mem_alloc(len + 1);
 	unsigned read = io_read(io, buffer, len + 1); // +1 to check if the file size is larger than expected
 	if(read < len)
 	{
-		buffer = realloc(buffer, read + 1);
+		buffer = (char*)realloc(buffer, read + 1);
 		len = read;
 	}
 	else if(read > len)
 	{
 		unsigned cap = 2 * read;
 		len = read;
-		buffer = realloc(buffer, cap);
+		buffer = (char*)realloc(buffer, cap);
 		while((read = io_read(io, buffer + len, cap - len)) != 0)
 		{
 			len += read;
 			if(len == cap)
 			{
 				cap *= 2;
-				buffer = realloc(buffer, cap);
+				buffer = (char*)realloc(buffer, cap);
 			}
 		}
-		buffer = realloc(buffer, len + 1);
+		buffer = (char*)realloc(buffer, len + 1);
 	}
 	buffer[len] = 0;
 	*result = buffer;
@@ -463,7 +460,7 @@ char *io_read_all_str(IOHANDLE io)
 		mem_free(buffer);
 		return 0x0;
 	}
-	return buffer;
+	return (char*)buffer;
 }
 
 unsigned io_unread_byte(IOHANDLE io, unsigned char byte)
@@ -614,7 +611,7 @@ static void aio_handle_free_and_unlock(ASYNCIO *aio)
 
 static void aio_thread(void *user)
 {
-	ASYNCIO *aio = user;
+	ASYNCIO *aio = (ASYNCIO*)user;
 
 	lock_wait(aio->lock);
 	while(1)
@@ -674,7 +671,7 @@ static void aio_thread(void *user)
 
 ASYNCIO *aio_new(IOHANDLE io)
 {
-	ASYNCIO *aio = malloc(sizeof(*aio));
+	ASYNCIO *aio = (ASYNCIO*)malloc(sizeof(*aio));
 	if(!aio)
 	{
 		return 0;
@@ -684,7 +681,7 @@ ASYNCIO *aio_new(IOHANDLE io)
 	sphore_init(&aio->sphore);
 	aio->thread = 0;
 
-	aio->buffer = malloc(ASYNC_BUFSIZE);
+	aio->buffer = (unsigned char*)malloc(ASYNC_BUFSIZE);
 	if(!aio->buffer)
 	{
 		sphore_destroy(&aio->sphore);
@@ -768,7 +765,7 @@ void aio_write_unlocked(ASYNCIO *aio, const void *buffer, unsigned size)
 		unsigned int new_written = buffer_len(aio) + size + 1;
 		unsigned int next_size = next_buffer_size(aio->buffer_size, new_written);
 		unsigned int next_len = 0;
-		unsigned char *next_buffer = malloc(next_size);
+		unsigned char *next_buffer = (unsigned char*)malloc(next_size);
 
 		struct BUFFERS buffers;
 		buffer_ptrs(aio, &buffers);
@@ -873,7 +870,7 @@ static unsigned long __stdcall thread_run(void *user)
 #error not implemented
 #endif
 {
-	struct THREAD_RUN *data = user;
+	struct THREAD_RUN *data = (THREAD_RUN*)user;
 	void (*threadfunc)(void *) = data->threadfunc;
 	void *u = data->u;
 	free(data);
@@ -883,7 +880,7 @@ static unsigned long __stdcall thread_run(void *user)
 
 void *thread_init(void (*threadfunc)(void *), void *u)
 {
-	struct THREAD_RUN *data = malloc(sizeof(*data));
+	struct THREAD_RUN *data = (THREAD_RUN*)malloc(sizeof(*data));
 	data->threadfunc = threadfunc;
 	data->u = u;
 #if defined(CONF_FAMILY_UNIX)
@@ -979,14 +976,26 @@ typedef CRITICAL_SECTION LOCKINTERNAL;
 
 LOCK lock_create()
 {
-	LOCKINTERNAL *lock = (LOCKINTERNAL*)mem_alloc(sizeof(LOCKINTERNAL));
+	LOCKINTERNAL *lock = (LOCKINTERNAL *)malloc(sizeof(*lock));
+#if defined(CONF_FAMILY_UNIX)
+	int result;
+#endif
+
+	if(!lock)
+		return 0;
 
 #if defined(CONF_FAMILY_UNIX)
-	pthread_mutex_init(lock, 0x0);
+	result = pthread_mutex_init(lock, 0x0);
+	if(result != 0)
+	{
+		dbg_msg("lock", "init failed: %d", result);
+		free(lock);
+		return 0;
+	}
 #elif defined(CONF_FAMILY_WINDOWS)
 	InitializeCriticalSection((LPCRITICAL_SECTION)lock);
 #else
-	#error not implemented on this platform
+#error not implemented on this platform
 #endif
 	return (LOCK)lock;
 }
@@ -994,13 +1003,15 @@ LOCK lock_create()
 void lock_destroy(LOCK lock)
 {
 #if defined(CONF_FAMILY_UNIX)
-	pthread_mutex_destroy((LOCKINTERNAL *)lock);
+	int result = pthread_mutex_destroy((LOCKINTERNAL *)lock);
+	if(result != 0)
+		dbg_msg("lock", "destroy failed: %d", result);
 #elif defined(CONF_FAMILY_WINDOWS)
 	DeleteCriticalSection((LPCRITICAL_SECTION)lock);
 #else
-	#error not implemented on this platform
+#error not implemented on this platform
 #endif
-	mem_free(lock);
+	free(lock);
 }
 
 int lock_trylock(LOCK lock)
@@ -1014,27 +1025,38 @@ int lock_trylock(LOCK lock)
 #endif
 }
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wthread-safety-analysis"
+#endif
 void lock_wait(LOCK lock)
 {
 #if defined(CONF_FAMILY_UNIX)
-	pthread_mutex_lock((LOCKINTERNAL *)lock);
+	int result = pthread_mutex_lock((LOCKINTERNAL *)lock);
+	if(result != 0)
+		dbg_msg("lock", "lock failed: %d", result);
 #elif defined(CONF_FAMILY_WINDOWS)
 	EnterCriticalSection((LPCRITICAL_SECTION)lock);
 #else
-	#error not implemented on this platform
+#error not implemented on this platform
 #endif
 }
 
 void lock_unlock(LOCK lock)
 {
 #if defined(CONF_FAMILY_UNIX)
-	pthread_mutex_unlock((LOCKINTERNAL *)lock);
+	int result = pthread_mutex_unlock((LOCKINTERNAL *)lock);
+	if(result != 0)
+		dbg_msg("lock", "unlock failed: %d", result);
 #elif defined(CONF_FAMILY_WINDOWS)
 	LeaveCriticalSection((LPCRITICAL_SECTION)lock);
 #else
-	#error not implemented on this platform
+#error not implemented on this platform
 #endif
 }
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 #if defined(CONF_FAMILY_UNIX) && !defined(CONF_PLATFORM_MACOS) // this should be CONF_POSIX_SEM but bam can't run C programs
 void sphore_init(SEMAPHORE *sem) { sem_init(sem, 0, 0); }
@@ -1057,7 +1079,7 @@ typedef struct SEMINTERNAL
 
 void sphore_init(SEMAPHORE *sem)
 {
-	*sem = mem_alloc(sizeof(**sem));
+	*sem = (SEMAPHORE)mem_alloc(sizeof(**sem));
 
 	(*sem)->count = 0;
 	(*sem)->waiters = 0;
@@ -2125,6 +2147,24 @@ int fs_storage_path(const char *appname, char *path, int max)
 #endif
 }
 
+int fs_makedir_rec_for(const char *path)
+{
+	char buffer[1024 * 2];
+	char *p;
+	str_copy(buffer, path, sizeof(buffer));
+	for(p = buffer + 1; *p != '\0'; p++)
+	{
+		if(*p == '/' && *(p + 1) != '\0')
+		{
+			*p = '\0';
+			if(fs_makedir(buffer) < 0)
+				return -1;
+			*p = '/';
+		}
+	}
+	return 0;
+}
+
 int fs_makedir(const char *path)
 {
 #if defined(CONF_FAMILY_WINDOWS)
@@ -2771,6 +2811,34 @@ int str_comp_num(const char *a, const char *b, const int num)
 	return strncmp(a, b, num);
 }
 
+static const char *str_token_get(const char *str, const char *delim, int *length)
+{
+	size_t len = strspn(str, delim);
+	if(len > 1)
+		str++;
+	else
+		str += len;
+	if(!*str)
+		return NULL;
+
+	*length = strcspn(str, delim);
+	return str;
+}
+
+const char *str_next_token(const char *str, const char *delim, char *buffer, int buffer_size)
+{
+	int len = 0;
+	const char *tok = str_token_get(str, delim, &len);
+	if(len < 0)
+		return NULL;
+
+	len = buffer_size > len ? len : buffer_size - 1;
+	mem_copy(buffer, tok, len);
+	buffer[len] = '\0';
+
+	return tok + len;
+}
+
 int str_comp_filenames(const char *a, const char *b)
 {
 	int result;
@@ -2973,7 +3041,7 @@ int mem_comp(const void *a, const void *b, int size)
 
 int mem_has_null(const void *block, unsigned size)
 {
-	const unsigned char *bytes = block;
+	const unsigned char *bytes = (const unsigned char *)block;
 	unsigned i;
 	for(i = 0; i < size; i++)
 	{
@@ -3428,7 +3496,3 @@ void uint_to_bytes_be(unsigned char *bytes, unsigned value)
 	bytes[3] = value & 0xffu;
 }
 
-
-#if defined(__cplusplus)
-}
-#endif
