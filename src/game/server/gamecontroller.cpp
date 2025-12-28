@@ -735,6 +735,21 @@ void IGameController::Snap(int SnappingClient)
 		pGameInfo->m_MatchNum = m_GameInfo.m_MatchNum;
 		pGameInfo->m_MatchCurrent = m_GameInfo.m_MatchCurrent;
 	}
+
+	{
+		CNetObj_GameInfoEx *pGameInfoEx = static_cast<CNetObj_GameInfoEx *>(Server()->SnapNewItem(NETOBJTYPE_GAMEINFOEX, 0, sizeof(CNetObj_GameInfoEx)));
+
+		pGameInfoEx->m_Version = GAMEINFO_CURVERSION;
+
+		pGameInfoEx->m_Flags = GAMEINFOFLAG_PREDICT_VANILLA;
+		pGameInfoEx->m_Flags |= GAMEINFOFLAG_GAMETYPE_VANILLA;
+		pGameInfoEx->m_Flags |= GAMEINFOFLAG_ENTITIES_DDNET; //+KZ: why not?
+
+		pGameInfoEx->m_Flags2 |= GAMEINFOFLAG2_HUD_HEALTH_ARMOR;
+		pGameInfoEx->m_Flags2 |= GAMEINFOFLAG2_HUD_AMMO;
+
+		pGameInfoEx->m_Flags2 |= GAMEINFOFLAG2_HUD_DDRACE; //+KZ this does not work for some reason
+	}
 }
 
 void IGameController::Tick()

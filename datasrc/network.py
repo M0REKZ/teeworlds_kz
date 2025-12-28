@@ -6,19 +6,46 @@ Emoticons = Enum("EMOTICON", ["OOP", "EXCLAMATION", "HEARTS", "DROP", "DOTDOT", 
 Votes = Enum("VOTE", ["UNKNOWN", "START_OP", "START_KICK", "START_SPEC", "END_ABORT", "END_PASS", "END_FAIL"]) # todo 0.8: add RUN_OP, RUN_KICK, RUN_SPEC; rem UNKNOWN
 ChatModes = Enum("CHAT", ["NONE", "ALL", "TEAM", "WHISPER"])
 
-PlayerFlags = Flags("PLAYERFLAG", ["ADMIN", "CHATTING", "SCOREBOARD", "READY", "DEAD", "WATCHING", "BOT"])
+PlayerFlags = Flags("PLAYERFLAG", ["ADMIN", "CHATTING", "SCOREBOARD", "READY", "DEAD", "WATCHING", "BOT", "AIM"])
 GameFlags = Flags("GAMEFLAG", ["TEAMS", "FLAGS", "SURVIVAL", "RACE"])
 GameStateFlags = Flags("GAMESTATEFLAG", ["WARMUP", "SUDDENDEATH", "ROUNDOVER", "GAMEOVER", "PAUSED", "STARTCOUNTDOWN"])
 CoreEventFlags = Flags("COREEVENTFLAG", ["GROUND_JUMP", "AIR_JUMP", "HOOK_ATTACH_PLAYER", "HOOK_ATTACH_GROUND", "HOOK_HIT_NOHOOK"])
 RaceFlags = Flags("RACEFLAG", ["HIDE_KILLMSG", "FINISHMSG_AS_CHAT", "KEEP_WANTED_WEAPON"])
 
-GameMsgIDs = Enum("GAMEMSG", ["TEAM_SWAP", "SPEC_INVALID_ID", "TEAM_SHUFFLE", "TEAM_BALANCE", "CTF_DROP", "CTF_RETURN",
+GameMsgIDs = Enum("GAMEMSG", ["TEAM_SWAP", "SPEC_INVALIDID", "TEAM_SHUFFLE", "TEAM_BALANCE", "CTF_DROP", "CTF_RETURN",
 
 							"TEAM_ALL", "TEAM_BALANCE_VICTIM", "CTF_GRAB",
 
 							"CTF_CAPTURE",
 
 							"GAME_PAUSED"]) # todo 0.8: sort (1 para)
+
+ExPlayerFlags = Flags("EXPLAYERFLAG", ["AFK", "PAUSED", "SPEC"])
+Authed = Enum("AUTHED", ["NO", "HELPER", "MOD", "ADMIN"])
+GameInfoFlags = Flags("GAMEINFOFLAG", [
+	"TIMESCORE", "GAMETYPE_RACE", "GAMETYPE_FASTCAP", "GAMETYPE_FNG",
+	"GAMETYPE_DDRACE", "GAMETYPE_DDNET", "GAMETYPE_BLOCK_WORLDS",
+	"GAMETYPE_VANILLA", "GAMETYPE_PLUS", "FLAG_STARTS_RACE", "RACE",
+	"UNLIMITED_AMMO", "DDRACE_RECORD_MESSAGE", "RACE_RECORD_MESSAGE",
+	"ALLOW_EYE_WHEEL", "ALLOW_HOOK_COLL", "ALLOW_ZOOM", "BUG_DDRACE_GHOST",
+	"BUG_DDRACE_INPUT", "BUG_FNG_LASER_RANGE", "BUG_VANILLA_BOUNCE",
+	"PREDICT_FNG", "PREDICT_DDRACE", "PREDICT_DDRACE_TILES", "PREDICT_VANILLA",
+	"ENTITIES_DDNET", "ENTITIES_DDRACE", "ENTITIES_RACE", "ENTITIES_FNG",
+	"ENTITIES_VANILLA", "DONT_MASK_ENTITIES", "ENTITIES_BW"
+	# Full, use GameInfoFlags2 for more flags
+])
+GameInfoFlags2 = Flags("GAMEINFOFLAG2", [
+	"ALLOW_X_SKINS", "GAMETYPE_CITY", "GAMETYPE_FDDRACE", "ENTITIES_FDDRACE", "HUD_HEALTH_ARMOR", "HUD_AMMO",
+	"HUD_DDRACE", "NO_WEAK_HOOK", "NO_SKIN_CHANGE_FOR_FROZEN", "DDRACE_TEAM"
+])
+CharacterFlags = Flags("CHARACTERFLAG", ["SOLO", "JETPACK", "NO_COLLISION", "ENDLESS_HOOK", "ENDLESS_JUMP", "SUPER",
+                  "NO_HAMMER_HIT", "NO_SHOTGUN_HIT", "NO_GRENADE_HIT", "NO_LASER_HIT", "NO_HOOK",
+                  "TELEGUN_GUN", "TELEGUN_GRENADE", "TELEGUN_LASER",
+                  "WEAPON_HAMMER", "WEAPON_GUN", "WEAPON_SHOTGUN", "WEAPON_GRENADE", "WEAPON_LASER", "WEAPON_NINJA"])
+ProjectileFlags = Flags("PROJECTILEFLAG", ["CLIENTID_BIT{}".format(i) for i in range(8)] + [
+	"NO_OWNER", "IS_DDNET", "BOUNCE_HORIZONTAL", "BOUNCE_VERTICAL",
+	"EXPLOSIVE", "FREEZE",
+])
 
 
 RawHeader = '''
@@ -60,6 +87,11 @@ enum
 	VOTE_CHOICE_PASS = 0,
 	VOTE_CHOICE_YES = 1
 };
+
+enum
+{
+	GAMEINFO_CURVERSION=6,
+};
 '''
 
 RawSource = '''
@@ -74,6 +106,7 @@ Enums = [
 	Votes,
 	ChatModes,
 	GameMsgIDs,
+	Authed,
 ]
 
 Flags = [
@@ -82,6 +115,11 @@ Flags = [
 	GameStateFlags,
 	CoreEventFlags,
 	RaceFlags,
+	ExPlayerFlags,
+	GameInfoFlags,
+	GameInfoFlags2,
+	CharacterFlags,
+	ProjectileFlags,
 ]
 
 Objects = [
@@ -97,8 +135,6 @@ Objects = [
 
 		NetFlag("m_PlayerFlags", PlayerFlags),
 
-		# 0 means "no wanted weapon", `1+weapon` means that `weapon` is wanted,
-		# and ninja is not a valid wanted weapon.
 		NetIntRange("m_WantedWeapon", 0, 'NUM_WEAPONS-1'),
 		NetIntAny("m_NextWeapon"),
 		NetIntAny("m_PrevWeapon"),
@@ -180,7 +216,7 @@ Objects = [
 		NetIntRange("m_Health", 0, 10),
 		NetIntRange("m_Armor", 0, 10),
 		NetIntAny("m_AmmoCount"),
-		NetIntRange("m_Weapon", -1, 'NUM_WEAPONS-1'),
+		NetIntRange("m_Weapon", 0, 'NUM_WEAPONS-1'),
 		NetEnum("m_Emote", Emotes),
 		NetTick("m_AttackTick"),
 		NetFlag("m_TriggeredEvents", CoreEventFlags),
@@ -234,6 +270,46 @@ Objects = [
 		NetIntAny("m_Test"),
 	]),
 
+	NetObjectEx("DDNetPlayer", "player@netobj.ddnet.tw", [
+		NetIntAny("m_Flags"),
+		NetIntRange("m_AuthLevel", "AUTHED_NO", "AUTHED_ADMIN"),
+	]),
+
+	NetObjectEx("DDNetCharacter", "character@netobj.ddnet.tw", [
+		NetIntAny("m_Flags", default=0),
+		NetTick("m_FreezeEnd"),
+		NetIntRange("m_Jumps", -1, 255, default=2),
+		NetIntAny("m_TeleCheckpoint", default=-1),
+		NetIntRange("m_StrongWeakId", 0, 'MAX_CLIENTS-1', default=0),
+ 
+		# New data fields for jump display, freeze bar and ninja bar
+		# Default values indicate that these values should not be used
+		NetIntRange("m_JumpedTotal", -1, 255, default=-1),
+		NetTick("m_NinjaActivationTick"),
+		NetTick("m_FreezeStart"),
+		# New data fields for improved target accuracy
+		NetIntAny("m_TargetX", default=0),
+		NetIntAny("m_TargetY", default=0),
+		NetIntRange("m_TuneZoneOverride", -1, 0, default=-1),
+	]),
+
+	NetObjectEx("GameInfoEx", "gameinfo@netobj.ddnet.tw", [
+		NetIntAny("m_Flags"),
+		NetIntAny("m_Version"),
+		NetIntAny("m_Flags2"),
+	], fixup=False),
+
+	# The code assumes that this has the same in-memory representation as
+	# the Projectile net object.
+	NetObjectEx("DDNetProjectile", "projectile@netobj.ddnet.tw", [
+		NetIntAny("m_X"),
+		NetIntAny("m_Y"),
+		NetIntAny("m_Angle"),
+		NetIntAny("m_Data"),
+		NetIntRange("m_Type", 0, 'NUM_WEAPONS-1'),
+		NetTick("m_StartTick"),
+	]),
+
 	## Events
 
 	NetEvent("Common", [
@@ -277,6 +353,11 @@ Objects = [
 	NetObjectEx("MyOwnEvent", "my-own-event@heinrich5991.de", [
 		NetIntAny("m_Test"),
 	]),
+
+	NetObjectEx("SpecChar", "spec-char@netobj.ddnet.tw", [
+		NetIntAny("m_X"),
+		NetIntAny("m_Y"),
+	]),
 ]
 
 Messages = [
@@ -312,7 +393,7 @@ Messages = [
 	]),
 
 	NetMessage("Sv_TuneParams", []),
-	NetMessage("Sv_ExtraProjectile", []), # unused
+	NetMessage("Sv_ExtraProjectile", []),
 	NetMessage("Sv_ReadyToEnter", []),
 
 	NetMessage("Sv_WeaponPickup", [
@@ -495,4 +576,11 @@ Messages = [
 	NetMessageEx("Sv_MyOwnMessage", "my-own-message@heinrich5991.de", [
 		NetIntAny("m_Test"),
 	]),
+
+	NetMessageEx("Cl_ShowDistance", "show-distance@netmsg.ddnet.tw", [
+		NetIntAny("m_X"),
+		NetIntAny("m_Y"),
+	]),
+
+	NetMessageEx("Sv_TeamsState", "teamsstate@netmsg.ddnet.tw", []),
 ]

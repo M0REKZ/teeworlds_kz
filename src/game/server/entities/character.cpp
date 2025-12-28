@@ -860,6 +860,29 @@ void CCharacter::Snap(int SnappingClient)
 		if(5 * Server()->TickSpeed() - ((Server()->Tick() - m_LastAction) % (5 * Server()->TickSpeed())) < 5)
 			pCharacter->m_Emote = EMOTE_BLINK;
 	}
+
+	CNetObj_DDNetCharacter *pDDNetCharacter = static_cast<CNetObj_DDNetCharacter *>(Server()->SnapNewItem(NETOBJTYPE_DDNETCHARACTER, m_pPlayer->GetCID(), sizeof(CNetObj_DDNetCharacter)));
+
+	if(!pDDNetCharacter)
+		return;
+
+	pDDNetCharacter->m_Flags |= m_aWeapons[WEAPON_HAMMER].m_Got ? CHARACTERFLAG_WEAPON_HAMMER : 0;
+	pDDNetCharacter->m_Flags |= m_aWeapons[WEAPON_GUN].m_Got ? CHARACTERFLAG_WEAPON_GUN : 0;
+	pDDNetCharacter->m_Flags |= m_aWeapons[WEAPON_SHOTGUN].m_Got ? CHARACTERFLAG_WEAPON_SHOTGUN : 0;
+	pDDNetCharacter->m_Flags |= m_aWeapons[WEAPON_GRENADE].m_Got ? CHARACTERFLAG_WEAPON_GRENADE : 0;
+	pDDNetCharacter->m_Flags |= m_aWeapons[WEAPON_LASER].m_Got ? CHARACTERFLAG_WEAPON_HAMMER : 0;
+	pDDNetCharacter->m_Flags |= m_aWeapons[WEAPON_NINJA].m_Got ? CHARACTERFLAG_WEAPON_NINJA : 0;
+
+	pDDNetCharacter->m_FreezeStart = 0;
+	pDDNetCharacter->m_FreezeEnd = 0;
+	pDDNetCharacter->m_Jumps = 2;
+	pDDNetCharacter->m_JumpedTotal = m_Core.m_Jumped;
+	pDDNetCharacter->m_NinjaActivationTick = m_Ninja.m_ActivationTick;
+	pDDNetCharacter->m_StrongWeakId = m_pPlayer->GetCID();
+	pDDNetCharacter->m_TargetX = m_Input.m_TargetX;
+	pDDNetCharacter->m_TargetY = m_Input.m_TargetY;
+	pDDNetCharacter->m_TeleCheckpoint = -1;
+	pDDNetCharacter->m_TuneZoneOverride = -1;
 }
 
 void CCharacter::PostSnap()

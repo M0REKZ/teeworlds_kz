@@ -1077,7 +1077,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 
 			pPlayer->m_LastSetSpectatorModeTick = Server()->Tick();
 			if(!pPlayer->SetSpectatorID(pMsg->m_SpecMode, pMsg->m_SpectatorID))
-				SendGameMsg(GAMEMSG_SPEC_INVALID_ID, ClientID);
+				SendGameMsg(GAMEMSG_SPEC_INVALIDID, ClientID);
 		}
 		else if (MsgID == NETMSGTYPE_CL_EMOTICON && !m_World.m_Paused)
 		{

@@ -220,8 +220,6 @@ class NetObject:
 		self.struct_name = "CNetObj_%s" % self.name
 		self.enum_name = "NETOBJTYPE_%s" % self.name.upper()
 		self.variables = variables
-		if fixup and ex != None:
-			ex = "object-{}".format(ex)
 		self.ex = ex
 
 	def emit_declaration(self):
@@ -238,7 +236,10 @@ class NetObject:
 		lines += ["{"]
 		lines += ["\tconst %s *pObj = (const %s *)pData;"%(self.struct_name, self.struct_name)]
 		lines += ["\tif(sizeof(*pObj) != Size) return -1;"]
-		for v in self.variables:
+		variables = self.variables
+		if base_item:
+			variables += base_item.variables
+		for v in variables:
 			lines += ["\t"+line for line in v.emit_validate()]
 		lines += ["\treturn 0;"]
 		lines += ["}"]
@@ -253,8 +254,6 @@ class NetEvent(NetObject):
 
 class NetMessage(NetObject):
 	def __init__(self, name, variables, ex=None):
-		if ex != None:
-			ex = "message-{}".format(ex)
 		NetObject.__init__(self, name, variables, ex=ex, fixup=False)
 		self.base_struct_name = "CNetMsg_%s" % self.base
 		self.struct_name = "CNetMsg_%s" % self.name
@@ -289,8 +288,8 @@ class NetMessage(NetObject):
 		return lines
 
 class NetObjectEx(NetObject):
-	def __init__(self, name, ex, variables):
-		NetObject.__init__(self, name, variables, ex=ex)
+	def __init__(self, name, ex, variables, fixup=True):
+		NetObject.__init__(self, name, variables, ex=ex, fixup=fixup)
 
 class NetEventEx(NetEvent):
 	def __init__(self, name, ex, variables):
