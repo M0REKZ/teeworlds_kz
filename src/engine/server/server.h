@@ -144,6 +144,8 @@ public:
 		void Reset();
 	};
 
+	virtual int GetClientLastAckedTick(int ClientId) override { return m_aClients[ClientId].m_LastAckedSnapshot; }
+
 	CClient m_aClients[MAX_CLIENTS];
 
 	CSnapshotDelta m_SnapshotDelta;

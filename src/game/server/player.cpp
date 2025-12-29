@@ -205,6 +205,17 @@ void CPlayer::Snap(int SnappingClient)
 
 	pDDNetPlayerInfo->m_AuthLevel = Server()->IsAuthed(m_ClientID) ? AUTHED_ADMIN : AUTHED_NO;
 	pDDNetPlayerInfo->m_Flags = 0;
+
+	CNetObj_KaizoNetworkPlayerPing *pKaizoPlayerPing = static_cast<CNetObj_KaizoNetworkPlayerPing *>(Server()->SnapNewItem(NETOBJTYPE_KAIZONETWORKPLAYERPING, m_ClientID, sizeof(CNetObj_KaizoNetworkPlayerPing)));
+	if(!pKaizoPlayerPing)
+		return;
+
+	int diff = Server()->Tick() - Server()->GetClientLastAckedTick(m_ClientID);
+
+	if(diff > 50)
+		diff = 50;
+
+	pKaizoPlayerPing->m_Ping = (int)(diff * 1000/Server()->TickSpeed());
 }
 
 void CPlayer::OnDisconnect()

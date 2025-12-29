@@ -358,6 +358,10 @@ Objects = [
 		NetIntAny("m_X"),
 		NetIntAny("m_Y"),
 	]),
+ 
+	NetObjectEx("KaizoNetworkPlayerPing", "kaizoplayerping@m0rekz.github.io", [
+		NetIntAny("m_Ping", default=0),
+	]),
 ]
 
 Messages = [
