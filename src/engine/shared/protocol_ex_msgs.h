@@ -17,7 +17,40 @@
 // The second example shows how you could add a message if you don't own a
 // domain, but need a message for your minetee client/server.
 
-UUID(NETMSG_WHATIS,         "what-is@ddnet.tw")
-UUID(NETMSG_ITIS,           "it-is@ddnet.tw")
-UUID(NETMSG_IDONTKNOW,      "i-dont-know@ddnet.tw")
-UUID(NETMSG_MYOWNMESSAGE,   "my-own-message@heinrich5991.de")
+UUID(NETMSG_WHATIS, "what-is@ddnet.tw")
+UUID(NETMSG_ITIS, "it-is@ddnet.tw")
+UUID(NETMSG_IDONTKNOW, "i-dont-know@ddnet.tw")
+
+UUID(NETMSG_RCONTYPE, "rcon-type@ddnet.tw")
+UUID(NETMSG_MAP_DETAILS, "map-details@ddnet.tw")
+UUID(NETMSG_CAPABILITIES, "capabilities@ddnet.tw")
+UUID(NETMSG_CLIENTVER, "clientver@ddnet.tw")
+UUID(NETMSG_PINGEX, "ping@ddnet.tw")
+UUID(NETMSG_PONGEX, "pong@ddnet.tw")
+UUID(NETMSG_CHECKSUM_REQUEST, "checksum-request@ddnet.tw")
+UUID(NETMSG_CHECKSUM_RESPONSE, "checksum-response@ddnet.tw")
+UUID(NETMSG_CHECKSUM_ERROR, "checksum-error@ddnet.tw")
+UUID(NETMSG_REDIRECT, "redirect@ddnet.org")
+UUID(NETMSG_RCON_CMD_GROUP_START, "rcon-cmd-group-start@ddnet.org")
+UUID(NETMSG_RCON_CMD_GROUP_END, "rcon-cmd-group-end@ddnet.org")
+UUID(NETMSG_MAP_RELOAD, "map-reload@ddnet.org")
+UUID(NETMSG_RECONNECT, "reconnect@ddnet.org")
+UUID(NETMSG_MAPLIST_ADD, "sv-maplist-add@ddnet.org")
+UUID(NETMSG_MAPLIST_GROUP_START, "sv-maplist-start@ddnet.org")
+UUID(NETMSG_MAPLIST_GROUP_END, "sv-maplist-end@ddnet.org")
+
+//+KZ
+
+UUID(NETMSG_KZ_KAIZO_NETWORK_VERSION, "kaizoversion@m0rekz.github.io")
+UUID(NETMSG_CLIENTVER_INFCLASS, "clientver@infclass") // InfClass
+UUID(NETMSG_IAMTATER, "iamtater@sjrc6.github.io") // T-Client
+UUID(NETMSG_IAMQXD, "i-am-qxd@qxdFox.github.io") // E-Client
+UUID(NETMSG_IAMCHILLERBOT, "i-am-chillerbot@chillerbot.github.io") // Chillerbot-UX
+UUID(NETMSG_IAMSTA, "i-am-StA@stormaxs.github.io/sta.github.io") // StA Client
+UUID(NETMSG_IAMALLTHEHAXX, "i-am-allthehaxx@allthehaxx.github.io") // AllTheHaxx
+UUID(NETMSG_IAMPULSE, "i-am-pulse@pulse-client.xyz") // Pulse Client
+UUID(NETMSG_IAM_CACTUS, "iamcactus@denchik.top") // Cactus Client
+UUID(NETMSG_IAM_AIODOB, "i-am-aiodob@qxdFox.github.io") // Aiodob Client
+UUID(NETMSG_IAM_FEX, "i-am-fex@faffa81.github.io") // FeX Client
+UUID(NETMSG_IAMRUSHIE, "i-am-rushie@1voix1.github.io") // RClient
+UUID(NETMSG_IAM_SCLIENT, "i-am-sclient@sclient.site") // S-Client
