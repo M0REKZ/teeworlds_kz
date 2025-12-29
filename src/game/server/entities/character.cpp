@@ -679,9 +679,18 @@ void CCharacter::Die(int Killer, int Weapon)
 	GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
 
 	// send the kill message
+
+	CNetMsg_Inf_KillMsg InfMsg;
+	InfMsg.m_Assistant = m_PrevDamager;
+	InfMsg.m_InfDamageType = -1;
+	InfMsg.m_Killer = Killer;
+	InfMsg.m_Victim = m_pPlayer->GetCID();
+	InfMsg.m_Weapon = Weapon;
+
 	CNetMsg_Sv_KillMsg Msg;
 	Msg.m_Victim = m_pPlayer->GetCID();
 	Msg.m_ModeSpecial = ModeSpecial;
+	Msg.m_Assister = m_PrevDamager;
 	for(int i = 0 ; i < MAX_CLIENTS; i++)
 	{
 		if(!Server()->ClientIngame(i))
@@ -697,7 +706,11 @@ void CCharacter::Die(int Killer, int Weapon)
 			Msg.m_Killer = Killer;
 			Msg.m_Weapon = Weapon;
 		}
-		Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, i);
+
+		if(Server()->GetClientInfclassVersion(i))
+			Server()->SendPackMsg(&InfMsg, MSGFLAG_VITAL, i);
+		else
+			Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, i);
 	}
 
 	// a nice sound
@@ -717,6 +730,12 @@ bool CCharacter::TakeDamage(vec2 Force, vec2 Source, int Dmg, int From, int Weap
 
 	if(From >= 0)
 	{
+		if(From != m_LastDamager)
+		{
+			m_PrevDamager = m_LastDamager;
+			m_LastDamager = From;
+		}
+
 		if(GameServer()->m_pController->IsFriendlyFire(m_pPlayer->GetCID(), From))
 			return false;
 	}

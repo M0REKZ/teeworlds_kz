@@ -126,6 +126,9 @@ private:
 	CCharacterCore m_SendCore; // core that we should send
 	CCharacterCore m_ReckoningCore; // the dead reckoning core
 
+	// Assist Kills
+	int m_LastDamager = -1;
+	int m_PrevDamager = -1;
 };
 
 #endif

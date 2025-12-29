@@ -141,10 +141,15 @@ public:
 		const IConsole::CCommandInfo *m_pRconCmdToSend;
 		int m_MapListEntryToSend;
 
+		int m_InfclassVersion = 0;
+		int m_DDNetVersion = 0;
+
 		void Reset();
 	};
 
 	virtual int GetClientLastAckedTick(int ClientId) override { return m_aClients[ClientId].m_LastAckedSnapshot; }
+	virtual int GetClientInfclassVersion(int ClientId) override { return m_aClients[ClientId].m_InfclassVersion; }
+	virtual int GetClientDDNetVersion(int ClientId) override { return m_aClients[ClientId].m_DDNetVersion; }
 
 	CClient m_aClients[MAX_CLIENTS];
 
