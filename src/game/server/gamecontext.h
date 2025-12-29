@@ -202,6 +202,7 @@ public:
 	virtual const char *NetVersionHashReal() const;
 
 	void PreInputClients(int ClientId, bool *pClients) override;
+	static void ConRejoinShutdown(IConsole::IResult *pResult, void *pUserData);
 };
 
 inline int64 CmaskAll() { return -1; }

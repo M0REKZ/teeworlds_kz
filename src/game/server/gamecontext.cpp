@@ -1581,6 +1581,8 @@ void CGameContext::OnConsoleInit()
 	Console()->Register("remove_vote", "s[option]", CFGFLAG_SERVER, ConRemoveVote, this, "remove a voting option");
 	Console()->Register("clear_votes", "", CFGFLAG_SERVER, ConClearVotes, this, "Clears the voting options");
 	Console()->Register("vote", "r['yes'|'no']", CFGFLAG_SERVER, ConVote, this, "Force a vote to yes/no");
+
+	Console()->Register("shutdown_rejoin", "", CFGFLAG_SERVER, ConRejoinShutdown, this, "Make players rejoin after shutdown");
 }
 
 void CGameContext::NewCommandHook(const CCommandManager::CCommand *pCommand, void *pContext)
@@ -1771,4 +1773,11 @@ void CGameContext::PreInputClients(int ClientId, bool *pClients)
 
 		pClients[Id] = true;
 	}
+}
+
+void CGameContext::ConRejoinShutdown(IConsole::IResult *pResult, void *pUserData)
+{
+    CGameContext *pSelf = (CGameContext *)pUserData;
+	
+	pSelf->Console()->ExecuteLine("shutdown Reserved. Please wait or reconnect to the server.");
 }
