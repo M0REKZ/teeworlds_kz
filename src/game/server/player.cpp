@@ -197,6 +197,14 @@ void CPlayer::Snap(int SnappingClient)
 			pClientInfo->m_aSkinPartColors[p] = m_TeeInfos.m_aSkinPartColors[p];
 		}
 	}
+
+	CNetObj_DDNetPlayer *pDDNetPlayerInfo = static_cast<CNetObj_DDNetPlayer *>(Server()->SnapNewItem(NETOBJTYPE_DDNETPLAYER, m_ClientID, sizeof(CNetObj_DDNetPlayer)));
+
+	if(!pDDNetPlayerInfo)
+		return;
+
+	pDDNetPlayerInfo->m_AuthLevel = Server()->IsAuthed(m_ClientID) ? AUTHED_ADMIN : AUTHED_NO;
+	pDDNetPlayerInfo->m_Flags = 0;
 }
 
 void CPlayer::OnDisconnect()
