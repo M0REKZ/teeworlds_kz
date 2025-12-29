@@ -666,6 +666,8 @@ int CServer::NewClientCallback(int ClientID, void *pUser)
 	pThis->m_aClients[ClientID].m_Latency = 0;
 	pThis->m_aClients[ClientID].Reset();
 
+	pThis->SendCapabilities(ClientID);
+
 	return 0;
 }
 
@@ -854,6 +856,7 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 				m_aClients[ClientID].m_Version = Unpacker.GetInt();
 
 				m_aClients[ClientID].m_State = CClient::STATE_CONNECTING;
+				SendCapabilities(ClientID);
 				SendMap(ClientID);
 			}
 		}
@@ -1126,6 +1129,14 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 		if((pPacket->m_Flags&NET_CHUNKFLAG_VITAL) != 0 && m_aClients[ClientID].m_State >= CClient::STATE_READY)
 			GameServer()->OnMessage(Msg, &Unpacker, ClientID);
 	}
+}
+
+void CServer::SendCapabilities(int ClientId)
+{
+	CMsgPacker Msg(NETMSG_CAPABILITIES, true);
+	Msg.AddInt(SERVERCAP_CURVERSION); // version
+	Msg.AddInt(SERVERCAPFLAG_DDNET | SERVERCAPFLAG_ANYPLAYERFLAG | SERVERCAPFLAG_PINGEX | SERVERCAPFLAG_ALLOWDUMMY | SERVERCAPFLAG_SYNCWEAPONINPUT); // flags
+	SendMsg(&Msg, MSGFLAG_VITAL, ClientId);
 }
 
 void CServer::GenerateServerInfo(CPacker *pPacker, bool IncludeClientInfo)

@@ -6,11 +6,11 @@
 
 #include <new>
 
-void RegisterUuids(class CUuidManager *pManager)
+void RegisterUuids(CUuidManager *pManager)
 {
-	#define UUID(id, name) pManager->RegisterName(id, "system-message-" name);
-	#include "protocol_ex_msgs.h"
-	#undef UUID
+#define UUID(id, name) pManager->RegisterName(id, name);
+#include "protocol_ex_msgs.h"
+#undef UUID
 }
 
 int UnpackMessageID(int *pID, bool *pSys, struct CUuid *pUuid, CUnpacker *pUnpacker, CMsgPacker *pPacker, bool Debug)

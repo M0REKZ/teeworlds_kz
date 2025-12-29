@@ -21,6 +21,17 @@ enum
 	UNPACKMESSAGE_ANSWER,
 };
 
+enum
+{
+	SERVERCAP_CURVERSION = 5,
+	SERVERCAPFLAG_DDNET = 1 << 0,
+	SERVERCAPFLAG_CHATTIMEOUTCODE = 1 << 1,
+	SERVERCAPFLAG_ANYPLAYERFLAG = 1 << 2,
+	SERVERCAPFLAG_PINGEX = 1 << 3,
+	SERVERCAPFLAG_ALLOWDUMMY = 1 << 4,
+	SERVERCAPFLAG_SYNCWEAPONINPUT = 1 << 5,
+};
+
 void RegisterUuids(class CUuidManager *pManager);
 
 int UnpackMessageID(int *pID, bool *pSys, struct CUuid *pUuid, CUnpacker *pUnpacker, CMsgPacker *pPacker, bool Debug);
