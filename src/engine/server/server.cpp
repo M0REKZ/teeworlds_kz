@@ -1037,9 +1037,9 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 							continue;
 
 						if(m_aClients[ClientID].m_TimeTravelType)
-							PreInput.m_IntendedTick += IntendedTick + (Tick() - m_aClients[ClientID].m_LastAckedSnapshot)/2;
+							PreInput.m_IntendedTick = IntendedTick + (Tick() - m_aClients[ClientID].m_LastAckedSnapshot)/2;
 						else
-							PreInput.m_IntendedTick += IntendedTick;
+							PreInput.m_IntendedTick = IntendedTick;
 
 						SendPackMsg(&PreInput, MSGFLAG_VITAL | MSGFLAG_NORECORD, Id);
 					}
