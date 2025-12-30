@@ -1137,6 +1137,11 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			CNetMsg_Cl_Command *pMsg = (CNetMsg_Cl_Command*)pRawMsg;
 			CommandManager()->OnCommand(pMsg->m_Name, pMsg->m_Arguments, ClientID);
 		}
+		else if (MsgID == NETMSGTYPE_KAIZOTIMETRAVELINPUTTYPE)
+		{
+			CNetMsg_KaizoTimeTravelInputType *pMsg = (CNetMsg_KaizoTimeTravelInputType*)pRawMsg;
+			Server()->SetClientTimeTravelType(ClientID, pMsg->m_Type);
+		}
 	}
 	else
 	{

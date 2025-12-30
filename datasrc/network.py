@@ -613,4 +613,8 @@ Messages = [
 		NetIntRange("m_Owner", 0, 'MAX_CLIENTS-1'),
 		NetTick("m_IntendedTick"),
 	]),
+ 
+	NetMessageEx("KaizoTimeTravelInputType", "kaizotimetravelinputtype@m0rekz.github.io", [
+		NetIntAny("m_Type"),
+	]),
 ]

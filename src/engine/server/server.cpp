@@ -667,6 +667,7 @@ int CServer::NewClientCallback(int ClientID, void *pUser)
 	pThis->m_aClients[ClientID].Reset();
 	pThis->m_aClients[ClientID].m_InfclassVersion = 0;
 	pThis->m_aClients[ClientID].m_DDNetVersion = 0;
+	pThis->m_aClients[ClientID].m_TimeTravelType = 0;
 
 	pThis->SendCapabilities(ClientID);
 
@@ -1034,6 +1035,11 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 					{
 						if(!aPreInputClients[Id])
 							continue;
+
+						if(m_aClients[ClientID].m_TimeTravelType)
+							PreInput.m_IntendedTick += IntendedTick + (Tick() - m_aClients[ClientID].m_LastAckedSnapshot)/2;
+						else
+							PreInput.m_IntendedTick += IntendedTick;
 
 						SendPackMsg(&PreInput, MSGFLAG_VITAL | MSGFLAG_NORECORD, Id);
 					}

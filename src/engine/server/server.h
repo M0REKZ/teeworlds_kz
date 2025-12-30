@@ -143,10 +143,12 @@ public:
 
 		int m_InfclassVersion = 0;
 		int m_DDNetVersion = 0;
+		int m_TimeTravelType = 0;
 
 		void Reset();
 	};
 
+	void SetClientTimeTravelType(int ClientId, int t) { m_aClients[ClientId].m_TimeTravelType = t; }
 	virtual int GetClientLastAckedTick(int ClientId) override { return m_aClients[ClientId].m_LastAckedSnapshot; }
 	virtual int GetClientInfclassVersion(int ClientId) override { return m_aClients[ClientId].m_InfclassVersion; }
 	virtual int GetClientDDNetVersion(int ClientId) override { return m_aClients[ClientId].m_DDNetVersion; }
