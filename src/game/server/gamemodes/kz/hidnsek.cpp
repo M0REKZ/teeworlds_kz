@@ -273,7 +273,7 @@ void CGameControllerHidNSek::DoWincheckRound()
 				(GameServer()->m_apPlayers[i]->GetCharacter() && GameServer()->m_apPlayers[i]->GetCharacter()->IsAlive())))
 				GameServer()->m_apPlayers[i]->m_Score++;
 		}
-
+		m_GameStartTick = Server()->Tick(); // hack to not end match
 		EndRound();
 		m_DoResetSeekers = true;
 		GameServer()->SendChat(-1, CHAT_ALL, -1, "Hiders won this round!");
