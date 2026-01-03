@@ -62,7 +62,13 @@ void CGameControllerHidNSek::Tick()
 					m_HidNSekPlayers[pPlayer->GetCID()].SetSeeker(true);
 					SendSkinChangeHNS(pPlayer->GetCID(), -1, 65408);
 					if(CCharacter *pChr = pPlayer->GetCharacter())
+					{
 						pChr->RemoveWeapon(WEAPON_GUN);
+						pChr->RemoveWeapon(WEAPON_HAMMER);
+						pChr->GiveWeapon(Config()->m_SvHidNSekSeekerWeapon, -1);
+						pChr->SetWeapon(Config()->m_SvHidNSekSeekerWeapon);
+					}
+					pPlayer->m_RespawnDisabled = false;
 					m_HidNSekPlayers[pPlayer->GetCID()].m_FrozenTick = Server()->Tick() + (Server()->TickSpeed() * Config()->m_SvHidNSekFreezeStart - Server()->TickSpeed() * Config()->m_SvHidNSekFreezeHit);
 				}
 
@@ -140,6 +146,16 @@ void CGameControllerHidNSek::OnCharacterSpawn(CCharacter *pChr)
 	pChr->IncreaseArmor(10);
 	// prevent respawn
 	pChr->GetPlayer()->m_RespawnDisabled = GetStartRespawnState();
+
+	pChr->RemoveWeapon(WEAPON_GUN);
+	pChr->SetWeapon(WEAPON_HAMMER);
+
+	if(m_HidNSekPlayers[pChr->GetPlayer()->GetCID()].m_IsSeeker)
+	{
+		pChr->RemoveWeapon(WEAPON_HAMMER);
+		pChr->GiveWeapon(Config()->m_SvHidNSekSeekerWeapon, -1);
+		pChr->SetWeapon(Config()->m_SvHidNSekSeekerWeapon);
+	}
 }
 
 bool CGameControllerHidNSek::OnCharacterSnap(CCharacter *pChar, int SnappingClient)
@@ -268,9 +284,7 @@ void CGameControllerHidNSek::DoWincheckRound()
 	{
 		for(int i = 0; i < MAX_CLIENTS; ++i)
 		{
-			if(GameServer()->m_apPlayers[i] && !m_HidNSekPlayers[i].m_IsSeeker && GameServer()->m_apPlayers[i]->GetTeam() != TEAM_SPECTATORS &&
-				(!GameServer()->m_apPlayers[i]->m_RespawnDisabled ||
-				(GameServer()->m_apPlayers[i]->GetCharacter() && GameServer()->m_apPlayers[i]->GetCharacter()->IsAlive())))
+			if(GameServer()->m_apPlayers[i] && !m_HidNSekPlayers[i].m_IsSeeker && GameServer()->m_apPlayers[i]->GetTeam() != TEAM_SPECTATORS)
 				GameServer()->m_apPlayers[i]->m_Score++;
 		}
 		m_GameStartTick = Server()->Tick(); // hack to not end match
@@ -297,9 +311,7 @@ void CGameControllerHidNSek::DoWincheckRound()
 			AlivePlayerCount = 0;
 			for(int i = 0; i < MAX_CLIENTS; ++i)
 			{
-				if(GameServer()->m_apPlayers[i] && m_HidNSekPlayers[i].m_IsSeeker && GameServer()->m_apPlayers[i]->GetTeam() != TEAM_SPECTATORS &&
-					(!GameServer()->m_apPlayers[i]->m_RespawnDisabled ||
-					(GameServer()->m_apPlayers[i]->GetCharacter() && GameServer()->m_apPlayers[i]->GetCharacter()->IsAlive())))
+				if(GameServer()->m_apPlayers[i] && m_HidNSekPlayers[i].m_IsSeeker && GameServer()->m_apPlayers[i]->GetTeam() != TEAM_SPECTATORS)
 				{
 					GameServer()->m_apPlayers[i]->m_Score++;
 				}
